@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🕹️ Goldilocks Hunting — Arcade Edition</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0b0f1a;          /* deep space */
+      --panel:#12162a;       /* dark panel */
+      --neon1:#00f5ff;       /* cyan neon */
+      --neon2:#ff2bd6;       /* magenta neon */
+      --neon3:#ffe066;       /* gold neon */
+      --grid:#1c2340;        /* grid lines */
+      --good:#00ffa3;        /* success */
+      --warn:#ffd166;        /* warn */
+      --bad:#ff6b6b;         /* error */
+    }
+
+    /* --- Global --- */
+    html,body{height:100%;}
+    body{
+      margin:0; color:#e9edff; 
+      background: radial-gradient(1200px 600px at 50% -10%, rgba(0,245,255,0.18), transparent 60%),
+                  linear-gradient(180deg, #0b0f1a 0%, #0b0f1a 60%);
+      font-family: 'Press Start 2P', monospace;
+      letter-spacing: 0.5px;
+      overflow-x:hidden;
+    }
+
+    /* Subtle CRT scanlines */
+    body:after{
+      content:""; position:fixed; inset:0; pointer-events:none;
+      background: repeating-linear-gradient( to bottom, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 2px, transparent 3px );
+      mix-blend-mode: overlay; opacity:.35;
+    }
+
+    header{
+      text-align:center; padding:28px 16px 10px;
+    }
+    .title{
+      font-size: 26px; line-height:1.3;
+      text-shadow: 0 0 6px var(--neon1), 0 0 14px var(--neon2);
+    }
+    .subtitle{font-size:12px; color:#a7b5ff; margin-top:8px}
+
+    main{ max-width:1100px; margin:0 auto; padding: 16px; }
+
+    .grid{
+      display:grid; gap:16px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(18,22,42,.95), rgba(10,14,28,.95));
+      border:2px solid rgba(0,245,255,.25);
+      border-radius:14px; padding:18px; position:relative; overflow:hidden;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.03) inset, 0 10px 30px rgba(0,0,0,.35);
+    }
+    .card:before{
+      content:""; position:absolute; inset:-2px; z-index:0;
+      background: conic-gradient(from 180deg, transparent, rgba(0,245,255,.08), transparent 40%);
+      filter: blur(10px); opacity:.7;
+    }
+    .card > *{ position:relative; z-index:1; }
+
+    h2{font-size:14px; margin:0 0 14px; color:var(--neon3); text-shadow: 0 0 8px rgba(255,224,102,.35)}
+
+    /* XP / Progress */
+    .xp-wrap{ display:flex; align-items:center; gap:10px; margin:8px 0 16px; }
+    .bar{ flex:1; height:16px; border:2px solid rgba(255,255,255,.18); border-radius:10px; overflow:hidden; background:#0b0f1a}
+    .bar>div{ height:100%; width:0; background:linear-gradient(90deg, var(--neon1), var(--neon2)); box-shadow:0 0 12px var(--neon1); transition: width .35s ease }
+    .score{ min-width:90px; text-align:right; color:var(--neon3); }
+
+    /* Buttons */
+    .buttons{ display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:10px; }
+    button.arc{
+      background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.15), rgba(255,255,255,.05));
+      border:2px solid rgba(255,255,255,.2);
+      color:#fff; padding:12px 10px; border-radius:10px; cursor:pointer; text-align:center;
+      transition: transform .08s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    button.arc:hover{ transform: translateY(-2px); border-color:var(--neon1); box-shadow:0 0 14px rgba(0,245,255,.35) }
+    button.arc:active{ transform: translateY(1px) scale(0.98) }
+
+    .tiny{ font-size:10px; color:#a7b5ff; display:block; margin-top:6px }
+
+    /* Tracker Table */
+    table{ width:100%; border-collapse: collapse; font-size:10px }
+    thead th{ text-align:left; padding:10px; background:#0f1430; color:#cfe3ff; border-bottom:1px solid rgba(255,255,255,.12) }
+    tbody td{ padding:10px; border-bottom:1px dashed rgba(255,255,255,.08) }
+
+    /* Filters / Inputs */
+    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px }
+    .field{ flex:1; min-width:160px }
+    input, select{
+      width:100%; background:#0a0f24; border:2px solid rgba(255,255,255,.12); color:#e9edff;
+      padding:10px 12px; border-radius:10px; font-family:inherit; font-size:11px;
+    }
+
+    .pill{ display:inline-block; padding:6px 10px; border:1px solid rgba(255,255,255,.25); border-radius:999px; font-size:10px; margin-right:6px }
+
+    .goal{ color:#cfe3ff; font-size:11px }
+
+    /* Pixel fireworks */
+    .spark{ position: fixed; width:8px; height:8px; background: var(--neon3); box-shadow:0 0 10px var(--neon3);
+            top:50%; left:50%; animation: pop .8s ease-out forwards }
+    @keyframes pop{ 0%{ transform: translate(-50%,-50%) scale(0); opacity:1 }
+                    70%{ transform: translate(var(--tx), var(--ty)) scale(1); opacity:1 }
+                    100%{ transform: translate(var(--tx), var(--ty)) scale(.2); opacity:0 } }
+
+    footer{ text-align:center; padding:14px; color:#92a2ff; font-size:10px }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title">🕹️ GOLDILOCKS HUNTING — ARCADE</div>
+    <div class="subtitle">60–90 min quote blitz • last 30 days • find the one that's <span style="color:var(--neon3)">just right</span></div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Session XP</h2>
+      <div class="xp-wrap">
+        <div class="bar"><div id="xpBar"></div></div>
+        <div class="score" id="score">0 XP</div>
+      </div>
+      <div class="goal">🎯 Goal: Follow up with at least <strong>10 quotes you didn’t create</strong>. <span class="pill" id="quotesPill">0 / 10</span></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Actions (Score Rules)</h2>
+        <div class="buttons">
+          <button class="arc" onclick="addPoints('Call/Voicemail', 1)">📞 Call / VM<span class="tiny">+1 XP</span></button>
+          <button class="arc" onclick="addPoints('New Contact Reached', 3)">👤 New Contact<span class="tiny">+3 XP</span></button>
+          <button class="arc" onclick="addPoints('Call Answered', 3)">✅ Answered<span class="tiny">+3 XP</span></button>
+          <button class="arc" onclick="addPoints('Uncovered Opportunity', 10)">🔍 New Opp<span class="tiny">+10 XP</span></button>
+          <button class="arc" onclick="addPoints('Still Interested / Purchase on Call', 25)">💰 Purchase Interest<span class="tiny">+25 XP</span></button>
+        </div>
+        <div style="margin-top:12px; font-size:10px; color:#9fb0ff" id="msg">⚡ Stack XP by working recent quotes you didn't originate.</div>
+      </section>
+
+      <section class="card">
+        <h2>Log Quote Follow-up (Counts Toward 10)</h2>
+        <div class="row">
+          <div class="field"><input id="fContact" placeholder="Contact (e.g., Jane D.)"/></div>
+          <div class="field"><input id="fCompany" placeholder="Company (e.g., Acme)"/></div>
+        </div>
+        <div class="row">
+          <div class="field"><input id="fQuoteDate" type="date" /></div>
+          <div class="field">
+            <select id="fOwner">
+              <option value="Another Rep">Owner: Another Rep</option>
+              <option value="You">Owner: You</option>
+            </select>
+          </div>
+          <div class="field">
+            <select id="fFit">
+              <option value="Just Right">Just Right</option>
+              <option value="Too Big">Too Big</option>
+              <option value="Too Small">Too Small</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field"><input id="fOutcome" placeholder="Outcome (e.g., Reviewing, Lost, Next Steps)"/></div>
+          <div class="field"><input id="fNext" placeholder="Next Step (e.g., Send summary, Book demo)"/></div>
+        </div>
+        <div class="row">
+          <button class="arc" onclick="logQuote()">📝 Log Follow-up</button>
+          <button class="arc" onclick="endDay()">🏁 End Session</button>
+          <button class="arc" onclick="resetAll()">🔄 Reset</button>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column:1/-1">
+        <h2>Goldilocks Tracker</h2>
+        <div class="row" style="margin-bottom:6px">
+          <span class="pill">Filter: last 30 days assumed</span>
+          <span class="pill" id="justRightCount">Just Right: 0</span>
+          <span class="pill" id="tooBigCount">Too Big: 0</span>
+          <span class="pill" id="tooSmallCount">Too Small: 0</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Contact</th>
+              <th>Company</th>
+              <th>Quote Date</th>
+              <th>Owner</th>
+              <th>Fit</th>
+              <th>Outcome</th>
+              <th>Next Step</th>
+              <th>Points</th>
+            </tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>Bonus Challenges</h2>
+        <div style="font-size:11px">
+          <label><input type="checkbox" id="ch3bears" onchange="saveChallenges()"/> 🥄 Three Bears — follow up on 3 quotes per customer</label><br/>
+          <label><input type="checkbox" id="chResurrect" onchange="saveChallenges()"/> 🔄 Quote Resurrector — re-engage 5 lost/ignored quotes</label><br/>
+          <label><input type="checkbox" id="chHunter" onchange="saveChallenges()"/> 💡 Opportunity Hunter — discover & document 3 new needs</label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Talk Tracks</h2>
+        <div style="font-size:10px; line-height:1.6; color:#cfe3ff">
+          <div class="pill">Opening</div>
+          “Hi [Name], this is Steve from Grainger. I’ve been reviewing some recent quotes in your account that I didn’t create. I wanted to follow up and see how those are looking on your end. Are any still under consideration, or is there anything I can clarify or improve?”
+          <div style="height:8px"></div>
+          <div class="pill">If Interested</div>
+          “Great! I can send a side-by-side summary or tweak the quotes to better fit your needs. Is there a specific challenge or budget you’re focused on? Would a phased/bundled option help?”
+          <div style="height:8px"></div>
+          <div class="pill">If Chose Another Vendor</div>
+          “Thanks for sharing. What made their offer stand out — price, timing, or something else? Want me to check back later if needs change?”
+          <div style="height:8px"></div>
+          <div class="pill">If Lost Track</div>
+          “No problem — I can resend them with a brief summary for easier review. Want a quick call to walk through options?”
+          <div style="height:8px"></div>
+          <div class="pill">If None Fit</div>
+          “I’d love to tailor an option that’s just right. What would that look like for you?”
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>© Arcade Sales Lab — Goldilocks Hunting. Push XP, move quotes, drive revenue.</footer>
+
+  <script>
+    // --- Local Storage Keys ---
+    const K_SCORE = 'gh_arcade_score';
+    const K_QUOTES = 'gh_arcade_quotesCount';
+    const K_LOG = 'gh_arcade_log';
+    const K_CHALL = 'gh_arcade_challenges';
+
+    let score = parseInt(localStorage.getItem(K_SCORE)) || 0;
+    let quotesCount = parseInt(localStorage.getItem(K_QUOTES)) || 0;
+    let log = JSON.parse(localStorage.getItem(K_LOG) || '[]');
+    let challenges = JSON.parse(localStorage.getItem(K_CHALL) || '{}');
+
+    // --- Elements ---
+    const xpBar = document.getElementById('xpBar');
+    const scoreEl = document.getElementById('score');
+    const quotesPill = document.getElementById('quotesPill');
+    const logBody = document.getElementById('logBody');
+    const justRightCount = document.getElementById('justRightCount');
+    const tooBigCount = document.getElementById('tooBigCount');
+    const tooSmallCount = document.getElementById('tooSmallCount');
+    const msg = document.getElementById('msg');
+
+    // challenge checkboxes
+    const ch3bears = document.getElementById('ch3bears');
+    const chResurrect = document.getElementById('chResurrect');
+    const chHunter = document.getElementById('chHunter');
+
+    // --- Init UI ---
+    updateUI();
+    renderLog();
+    restoreChallenges();
+
+    function updateUI(){
+      scoreEl.textContent = `${score} XP`;
+      quotesPill.textContent = `${quotesCount} / 10`;
+      const pct = Math.min(100, (score % 100));
+      xpBar.style.width = pct + '%';
+
+      // dynamic messages
+      if(score >= 100) setMsg('👑 GOLDILOCKS MASTER — keep chaining combos!');
+      else if(score >= 60) setMsg('🔥 Hot streak — bears better watch out!');
+      else if(score >= 30) setMsg('🐾 Finding those just-right quotes. Keep going!');
+      else setMsg('⚡ Hit the actions and rack up XP.');
+    }
+
+    function setMsg(text){ msg.textContent = text; }
+
+    function addPoints(action, points){
+      score += points; persist(); pixelBurst(); updateUI();
+      // lightweight action log row (no quote entry)
+      pushLog({action, points});
+    }
+
+    function logQuote(){
+      const contact = val('fContact');
+      const company = val('fCompany');
+      const qdate = val('fQuoteDate');
+      const owner = sel('fOwner');
+      const fit = sel('fFit');
+      const outcome = val('fOutcome');
+      const next = val('fNext');
+
+      if(!contact || !company){ alert('Contact and Company are required.'); return; }
+
+      // Only counts toward 10 if owner !== 'You'
+      const countsTowardGoal = owner !== 'You';
+      if(countsTowardGoal){ quotesCount++; }
+
+      // Default 0 points for the log entry itself; points come from action buttons
+      pushLog({contact, company, qdate, owner, fit, outcome, next, points: 0});
+
+      // Recompute fit counters and persist
+      persist();
+      updateUI();
+      renderLog();
+      recountFits();
+
+      if(countsTowardGoal && quotesCount === 10){
+        setTimeout(()=> alert('🎉 Goal reached: 10 followed-up quotes!'), 50);
+        megaBurst();
+      }
+
+      // clear quick fields
+      set('fContact',''); set('fCompany',''); set('fOutcome',''); set('fNext','');
+    }
+
+    function endDay(){
+      const today = new Date().toLocaleDateString();
+      const dailyTotal = log.filter(e=>e.date===today).reduce((s,e)=> s + (e.points||0), 0);
+      alert(`Session complete — ${today}: ${dailyTotal} XP`);
+    }
+
+    function resetAll(){
+      if(!confirm('Reset score, quotes, and log?')) return;
+      score = 0; quotesCount = 0; log = []; challenges = {};
+      persist(); renderLog(); updateUI(); recountFits(); restoreChallenges();
+    }
+
+    function pushLog(entry){
+      const now = new Date();
+      const row = Object.assign({
+        date: now.toLocaleDateString(),
+        time: now.toLocaleTimeString()
+      }, entry);
+      log.push(row);
+      localStorage.setItem(K_LOG, JSON.stringify(log));
+      renderLog(); recountFits();
+    }
+
+    function renderLog(){
+      logBody.innerHTML = log.map(e=>`
+        <tr>
+          <td>${e.date||''}</td>
+          <td>${e.time||''}</td>
+          <td>${e.contact||''}</td>
+          <td>${e.company||''}</td>
+          <td>${e.qdate||''}</td>
+          <td>${e.owner||''}</td>
+          <td>${e.fit||''}</td>
+          <td>${e.outcome||''}</td>
+          <td>${e.next||''}</td>
+          <td>${e.points||0}</td>
+        </tr>`).join('');
+    }
+
+    function recountFits(){
+      const jr = log.filter(e=>e.fit==='Just Right').length;
+      const tb = log.filter(e=>e.fit==='Too Big').length;
+      const ts = log.filter(e=>e.fit==='Too Small').length;
+      justRightCount.textContent = `Just Right: ${jr}`;
+      tooBigCount.textContent = `Too Big: ${tb}`;
+      tooSmallCount.textContent = `Too Small: ${ts}`;
+    }
+
+    function persist(){
+      localStorage.setItem(K_SCORE, String(score));
+      localStorage.setItem(K_QUOTES, String(quotesCount));
+      localStorage.setItem(K_LOG, JSON.stringify(log));
+    }
+
+    function saveChallenges(){
+      challenges = {
+        ch3bears: ch3bears.checked,
+        chResurrect: chResurrect.checked,
+        chHunter: chHunter.checked
+      };
+      localStorage.setItem(K_CHALL, JSON.stringify(challenges));
+    }
+    function restoreChallenges(){
+      ch3bears.checked = !!challenges.ch3bears;
+      chResurrect.checked = !!challenges.chResurrect;
+      chHunter.checked = !!challenges.chHunter;
+    }
+
+    // --- Arcade FX ---
+    function pixelBurst(){
+      for(let i=0;i<10;i++) pixel(i);
+    }
+    function megaBurst(){
+      for(let i=0;i<40;i++) pixel(i,true);
+    }
+    function pixel(i,big){
+      const s = document.createElement('div');
+      s.className = 'spark';
+      const ang = Math.random()*Math.PI*2;
+      const dist = (big? 220:120) + Math.random()*60;
+      s.style.setProperty('--tx', Math.cos(ang)*dist + 'px');
+      s.style.setProperty('--ty', Math.sin(ang)*dist + 'px');
+      s.style.left = (window.innerWidth/2) + 'px';
+      s.style.top = (120 + Math.random()*60) + 'px';
+      s.style.background = `hsl(${Math.random()*360},100%,60%)`;
+      document.body.appendChild(s);
+      setTimeout(()=> s.remove(), 900);
+    }
+
+    // --- tiny helpers ---
+    function val(id){ return document.getElementById(id).value.trim(); }
+    function sel(id){ return document.getElementById(id).value; }
+    function set(id,v){ document.getElementById(id).value = v; }
+  </script>
+</body>
+</html>
